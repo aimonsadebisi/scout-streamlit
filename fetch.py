@@ -4,8 +4,7 @@ import os
 
 OUTPUT = "data/players.json"
 
-# TEST MATCH (public working match id)
-EVENT_ID = 15453093
+EVENT_ID = 12437786  # GUARANTEED DATA MATCH
 
 url = f"https://api.sofascore.com/api/v1/event/{EVENT_ID}/lineups"
 
@@ -16,32 +15,38 @@ headers = {
 
 r = requests.get(url, headers=headers)
 
-if r.status_code != 200:
-    print("Request failed:", r.status_code)
-    exit()
+print("STATUS:", r.status_code)
 
 data = r.json()
 
+print("KEYS:", data.keys())
+
 players = []
 
-# ---- SAFE PARSE ----
 for side in ["home", "away"]:
-    if side not in data:
+    team = data.get(side)
+
+    if not team:
+        print("NO TEAM:", side)
         continue
 
-    for player in data[side]["players"]:
-        rating = player.get("statistics", {}).get("rating")
+    for p in team.get("players", []):
+        stats = p.get("statistics")
+
+        if not stats:
+            continue
+
+        rating = stats.get("rating")
 
         if rating:
             players.append({
-                "Player": player["player"]["name"],
+                "Player": p["player"]["name"],
                 "Rating": float(rating)
             })
 
-# save
 os.makedirs("data", exist_ok=True)
 
 with open(OUTPUT, "w", encoding="utf-8") as f:
     json.dump(players, f, indent=2)
 
-print("Players saved:", len(players))
+print("TOTAL PLAYERS:", len(players))
