@@ -1,8 +1,6 @@
 name: Fetch Sofascore Data
 
 on:
-  schedule:
-    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -12,15 +10,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install requests pandas
+      - run: pip install -r requirements.txt
 
-      - name: Fetch data
-        run: python fetch.py
+      - run: playwright install chromium
+
+      - run: python fetch.py
 
       - name: Commit data
         run: |
