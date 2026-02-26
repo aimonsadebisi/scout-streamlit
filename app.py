@@ -5,33 +5,48 @@ from datetime import timedelta
 
 st.title("⚽ Scout App - Top Rated Players")
 
-# -----------------------------
-# API FUNCTIONS
-# -----------------------------
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
 
+# -----------------------------
+# MATCH FETCH
+# -----------------------------
 def get_matches(date):
-    url = f"https://www.sofascore.com/api/v1/sport/football/scheduled-events/{date}"
-    r = requests.get(url)
 
-    if r.status_code != 200:
-        return []
+    urls = [
+        f"https://www.sofascore.com/api/v1/sport/football/scheduled-events/{date}",
+        f"https://www.sofascore.com/api/v1/sport/football/events/{date}"
+    ]
 
-    return r.json()["events"]
+    events = []
+
+    for url in urls:
+        r = requests.get(url, headers=HEADERS)
+        if r.status_code == 200:
+            data = r.json()
+            events.extend(data.get("events", []))
+
+    return events
 
 
+# -----------------------------
+# LINEUPS
+# -----------------------------
 def get_lineups(event_id):
+
     url = f"https://www.sofascore.com/api/v1/event/{event_id}/lineups"
-    r = requests.get(url)
+
+    r = requests.get(url, headers=HEADERS)
 
     if r.status_code != 200:
         return []
 
     data = r.json()
-
     players = []
 
     for side in ["home", "away"]:
-        for p in data[side]["players"]:
+        for p in data.get(side, {}).get("players", []):
 
             rating = p.get("avgRating")
 
@@ -41,17 +56,18 @@ def get_lineups(event_id):
             players.append({
                 "Player": p["player"]["name"],
                 "Rating": rating,
-                "TeamId": p["teamId"],
                 "EventId": event_id
             })
 
     return players
 
 
+# -----------------------------
+# COLLECT
+# -----------------------------
 def collect_players(start_date, end_date, league_id):
 
     all_players = []
-
     current = start_date
 
     progress = st.progress(0)
@@ -60,14 +76,18 @@ def collect_players(start_date, end_date, league_id):
 
     while current <= end_date:
 
-        matches = get_matches(current.strftime("%Y-%m-%d"))
+        date_str = current.strftime("%Y-%m-%d")
+        matches = get_matches(date_str)
+
+        st.write(f"{date_str} → matches found:", len(matches))
 
         for m in matches:
 
-            try:
-                league = m["tournament"]["uniqueTournament"]["id"]
-            except:
-                continue
+            league = (
+                m.get("tournament", {})
+                 .get("uniqueTournament", {})
+                 .get("id")
+            )
 
             if league != league_id:
                 continue
@@ -78,7 +98,6 @@ def collect_players(start_date, end_date, league_id):
             all_players.extend(players)
 
         current += timedelta(days=1)
-
         step += 1
         progress.progress(step / total_days)
 
@@ -88,12 +107,11 @@ def collect_players(start_date, end_date, league_id):
 # -----------------------------
 # UI
 # -----------------------------
-
 start_date = st.date_input("Start Date")
 end_date = st.date_input("End Date")
 
 league_id = st.number_input(
-    "League ID (Example: Premier League = 17)",
+    "League ID (Premier League = 17)",
     value=17
 )
 
@@ -108,8 +126,6 @@ if st.button("Analyze"):
         else:
             df = df.sort_values("Rating", ascending=False)
 
-            top50 = df.head(50)
+            st.success("Top players calculated!")
 
-            st.success("Top 50 players found!")
-
-            st.dataframe(top50, use_container_width=True)
+            st.dataframe(df.head(50), use_container_width=True)
