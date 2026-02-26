@@ -7,26 +7,32 @@ OUTPUT = "data/players.json"
 URL = "https://www.sofascore.com/tr/futbol/mac/fenerbahce-nottingham-forest/osclb#id:15453093"
 
 players = []
+captured = []
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
 
-    page.goto(URL, wait_until="networkidle")
-
-    responses = []
-
+    # ✅ LISTENER ÖNCE
     def handle_response(response):
         if "lineups" in response.url:
-            responses.append(response.json())
+            try:
+                captured.append(response.json())
+            except:
+                pass
 
     page.on("response", handle_response)
 
-    page.wait_for_timeout(5000)
+    # ✅ SONRA SAYFAYA GİT
+    page.goto(URL, wait_until="networkidle")
+
+    # biraz bekle (api geç gelebilir)
+    page.wait_for_timeout(8000)
 
     browser.close()
 
-for data in responses:
+# ---- PARSE ----
+for data in captured:
     for side in ["home", "away"]:
         team = data.get(side)
         if not team:
@@ -38,6 +44,7 @@ for data in responses:
                 continue
 
             rating = stats.get("rating")
+
             if rating:
                 players.append({
                     "Player": p["player"]["name"],
