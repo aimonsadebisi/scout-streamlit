@@ -13,7 +13,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
 
-    # ✅ LISTENER ÖNCE
+    # API response yakala
     def handle_response(response):
         if "lineups" in response.url:
             try:
@@ -23,15 +23,26 @@ with sync_playwright() as p:
 
     page.on("response", handle_response)
 
-    # ✅ SONRA SAYFAYA GİT
-    page.goto(URL, wait_until="networkidle")
+    page.goto(URL)
 
-    # biraz bekle (api geç gelebilir)
+    # SAYFA TAM YÜKLENSİN
+    page.wait_for_timeout(5000)
+
+    # ✅ LINEUPS TABINA TIKLA
+    try:
+        page.get_by_text("Kadro").click(timeout=5000)
+    except:
+        try:
+            page.get_by_text("Lineups").click(timeout=5000)
+        except:
+            pass
+
+    # API çağrısı için bekle
     page.wait_for_timeout(8000)
 
     browser.close()
 
-# ---- PARSE ----
+# ---- DATA PARSE ----
 for data in captured:
     for side in ["home", "away"]:
         team = data.get(side)
