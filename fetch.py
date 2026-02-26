@@ -1,53 +1,47 @@
 import requests
 import json
+import os
 
-HEADERS = {
+OUTPUT = "data/players.json"
+
+# TEST MATCH (public working match id)
+EVENT_ID = 15453093
+
+url = f"https://api.sofascore.com/api/v1/event/{EVENT_ID}/lineups"
+
+headers = {
     "User-Agent": "Mozilla/5.0",
     "Accept": "application/json"
 }
 
-URL = "https://www.sofascore.com/api/v1/event/15453093/lineups"
+r = requests.get(url, headers=headers)
 
-print("Fetching data...")
+if r.status_code != 200:
+    print("Request failed:", r.status_code)
+    exit()
+
+data = r.json()
 
 players = []
 
-try:
-    r = requests.get(URL, headers=HEADERS, timeout=15)
+# ---- SAFE PARSE ----
+for side in ["home", "away"]:
+    if side not in data:
+        continue
 
-    print("Status code:", r.status_code)
+    for player in data[side]["players"]:
+        rating = player.get("statistics", {}).get("rating")
 
-    if r.status_code != 200:
-        raise Exception("Request blocked")
-
-    data = r.json()
-
-    # Güvenli erişim (KeyError YOK)
-    for side in ["home", "away"]:
-        side_data = data.get(side)
-
-        if not side_data:
-            print(f"{side} data missing")
-            continue
-
-        for p in side_data.get("players", []):
-            rating = p.get("avgRating")
-
-            if rating is None:
-                continue
-
+        if rating:
             players.append({
-                "Player": p["player"]["name"],
-                "Rating": rating
+                "Player": player["player"]["name"],
+                "Rating": float(rating)
             })
 
-except Exception as e:
-    print("ERROR:", e)
+# save
+os.makedirs("data", exist_ok=True)
 
-# HER DURUMDA DOSYA YAZ
-print("Players collected:", len(players))
+with open(OUTPUT, "w", encoding="utf-8") as f:
+    json.dump(players, f, indent=2)
 
-with open("data/players.json", "w") as f:
-    json.dump(players, f)
-
-print("players.json updated.")
+print("Players saved:", len(players))
